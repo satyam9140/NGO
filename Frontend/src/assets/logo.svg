@@ -1,0 +1,6 @@
+<!-- Simple modern logo SVG: paste into frontend/src/assets/logo.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="14" fill="#0ea5a4"/>
+  <path d="M20 35c2-6 7-10 12-10s10 4 12 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="20" r="6" fill="white"/>
+</svg>
