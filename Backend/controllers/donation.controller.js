@@ -3,6 +3,8 @@ const Donation = require('../models/Donation.model')
 const Transaction = require('../models/Transaction.model')
 const { stripe, razorpay } = require('../config/payment.config')
 const { v4: uuidv4 } = require('uuid')
+const demoSeed = require('../config/demoSeed')
+
 
 exports.create = async (req, res, next) => {
   try {
@@ -33,28 +35,31 @@ exports.create = async (req, res, next) => {
 }
 exports.createDonation = async (req, res) => {
   try {
-    // Example request body: { ngo: "<objectId>", amount: 500, donorName: "Alice" }
-    let { ngo, amount, donorName } = req.body;
+    const { amount, ngo } = req.body;
 
-    // 1) Sanitize: convert empty string to undefined
-    if (typeof ngo === 'string') ngo = ngo.trim();
-    if (!ngo) ngo = undefined;
-
-    // 2) Validate presence and format
-    if (!ngo) {
-      return res.status(400).json({ error: 'ngo is required' });
-    }
-    if (!mongoose.Types.ObjectId.isValid(ngo)) {
-      return res.status(400).json({ error: 'Invalid ngo id' });
+    // Validate NGO ID
+    if (!ngo || !mongoose.Types.ObjectId.isValid(ngo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid NGO ID is required"
+      });
     }
 
-    const donation = new Donation({ ngo, amount, donorName });
-    await donation.save();
+    const donation = await Donation.create({
+      amount,
+      ngo
+    });
 
-    res.status(201).json(donation);
-  } catch (err) {
-    console.error('createDonation error', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(201).json({
+      success: true,
+      donation
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -71,4 +76,59 @@ exports.receipt = async (req, res, next) => {
     if (!donation) return res.status(404).json({ message: 'Not found' })
     res.json({ _id: donation._id, amount: donation.amount, ngoName: donation.ngo?.name, createdAt: donation.createdAt })
   } catch (err) { next(err) }
+}
+exports.create = async (req, res, next) => {
+  try {
+    let { ngoId, amount, method } = req.body
+    amount = Number(amount) || 0
+    method = method || 'manual'
+
+    // Build donation payload
+    const donationPayload = {
+      amount,
+      method,
+      status: 'pending',
+      user: req.userId || undefined
+    }
+
+    // Attach NGO reference: ObjectId if valid, otherwise fallback to demo seed
+    if (ngoId) {
+      if (mongoose.Types.ObjectId.isValid(ngoId)) {
+        donationPayload.ngo = ngoId
+      } else {
+        // assume demo seed or external string; store it in ngoSeedId and try to capture a name
+        donationPayload.ngoSeedId = String(ngoId)
+        const seed = demoSeed.find(s => s._id === ngoId)
+        donationPayload.ngoName = seed ? seed.name : String(ngoId)
+      }
+    }
+
+    const donation = await Donation.create(donationPayload)
+
+    // If payment integrations are configured, create provider-specific objects.
+    // Keep simple: return client details to frontend (clientSecret / order) when needed.
+
+    if (method === 'stripe' && stripe) {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100),
+        currency: 'inr',
+        metadata: { donationId: donation._id.toString() }
+      })
+      return res.json({ donationId: donation._id, clientSecret: paymentIntent.client_secret, paymentUrl: null })
+    } else if (method === 'razorpay' && razorpay) {
+      const options = {
+        amount: Math.round(amount * 100),
+        currency: 'INR',
+        receipt: `donation_${uuidv4()}`,
+        notes: { donationId: donation._id.toString() }
+      }
+      const order = await razorpay.orders.create(options)
+      return res.json({ donationId: donation._id, order })
+    } else {
+      // manual/dummy flows — return donation created
+      return res.json({ donationId: donation._id })
+    }
+  } catch (err) {
+    next(err)
+  }
 }

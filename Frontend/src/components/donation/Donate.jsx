@@ -3,6 +3,7 @@ import { listNGOs } from '../../api/ngo.api'
 import { createDonation } from '../../api/donation.api'
 import { useAuth } from '../../hooks/useAuth'
 import Loader from '../common/Loader'
+import { useNavigate } from 'react-router-dom'
 
 export default function Donate(){
   const [ngos, setNgos] = useState([])
@@ -10,6 +11,7 @@ export default function Donate(){
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const nav = useNavigate()
 
   useEffect(() => {
     (async () => {
@@ -28,6 +30,11 @@ export default function Donate(){
   const submit = async (e) => {
     e.preventDefault()
     if (!user) return alert('Please login to donate')
+    // If user chose the dummy payment flow, open the dummy Payment Portal
+    if (form.method === 'dummy') {
+      return nav('/payment-portal', { state: form })
+    }
+
     setProcessing(true)
     try {
       const { data } = await createDonation(form)
@@ -38,6 +45,7 @@ export default function Donate(){
         alert('Payment initiated. Implement Stripe client SDK to complete checkout.')
       } else {
         alert('Donation created successfully!')
+        nav('/donations')
       }
     } catch (err) {
       alert(err?.response?.data?.message || 'Donation failed')
@@ -65,6 +73,7 @@ export default function Donate(){
               <option value="stripe">Stripe</option>
               <option value="razorpay">Razorpay</option>
               <option value="manual">Manual / Bank Transfer</option>
+              <option value="dummy">Dummy / Simulate Payment (dev)</option>
             </select>
 
             <div style={{marginTop:16,display:'flex',gap:8,alignItems:'center'}}>

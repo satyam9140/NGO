@@ -11,6 +11,7 @@ import Donate from '../components/donation/Donate'
 import DonationHistory from '../components/donation/DonationHistory'
 import Receipt from '../components/donation/Receipt'
 import AdminDashboard from '../components/admin/AdminDashboard'
+import PaymentPortal from '../pages/PaymentPortal'
 
 export default function AppRoutes() {
   return (
@@ -19,6 +20,7 @@ export default function AppRoutes() {
       <Route path="/ngos" element={<NGOList />} />
       <Route path="/ngos/:id" element={<NGOProfile />} />
       <Route path="/donate" element={<Donate />} />
+      <Route path="/payment-portal" element={<PaymentPortal />} />
       <Route path="/donations" element={<DonationHistory />} />
       <Route path="/donations/:id/receipt" element={<Receipt />} />
       <Route path="/about" element={<About />} />
